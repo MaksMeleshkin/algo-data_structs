@@ -224,5 +224,5 @@ int main(){
 			}
 		}
 	}
-	std::cout << GraphProcessing::getComponent(g, s - 1	).size();
+	std::cout << GraphProcessing::getComponent(g, s - 1).size();
 }
