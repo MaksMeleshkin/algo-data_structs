@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <queue>
+#include <cassert>
 
 class Graph {
 public:
@@ -16,7 +17,7 @@ public:
 		return vertex_count;
 	}
 
-	bool is_directed() {
+	bool is_directed() const {
 		return is_dir;
 	}
 
@@ -80,77 +81,77 @@ namespace GraphProcessing {
 	namespace{
 		typedef size_t Vertex;
 		enum VertexMark {
-			white,
-			grey,
-			black
+			WHITE,
+			GRAY,
+			BLACK
 		};
 	
-		void dfs_1(std::vector<VertexMark> &vertex_mark, const Graph &g, const Vertex v, std::vector<std::vector<Vertex>> &components) {
-			vertex_mark[v] = grey;
+		void dfs_for_cc(std::vector<VertexMark> &vertex_mark, const Graph &g, const Vertex v, std::vector<std::vector<Vertex>> &components) {
+			vertex_mark[v] = GRAY;
 			(*components.rbegin()).push_back(v);
 			for (Vertex i: g.get_neighbors(v)) {
-				if (vertex_mark[i] == white) {
-					dfs_1(vertex_mark, g, i, components);
+				if (vertex_mark[i] == WHITE) {
+					dfs_for_cc(vertex_mark, g, i, components);
 				}
 			}
-			vertex_mark[v] = black;
+			vertex_mark[v] = BLACK;
 		}
 
-		void dfs_2(std::vector<VertexMark> &vertex_mark, const Graph &g, const Vertex v, std::vector<Vertex> &result) {
-			vertex_mark[v] = grey;
+		void dfs_for_ts(std::vector<VertexMark> &vertex_mark, const Graph &g, const Vertex v, std::vector<Vertex> &order) {
+			vertex_mark[v] = GRAY;
 			for (Vertex i: g.get_neighbors(v)) {
-				if (vertex_mark[i] == white) {
-					dfs_2(vertex_mark, g, i, result); 
+				if (vertex_mark[i] == WHITE) {
+					dfs_for_ts(vertex_mark, g, i, order); 
 				}
 			}
-			result.push_back(v);
+			order.push_back(v);
 		}
 
 		bool dfs(std::vector<VertexMark> &vertex_mark, const Graph &g, const Vertex v) {
-			vertex_mark[v] = grey;
+			vertex_mark[v] = GRAY;
 			for (Vertex i: g.get_neighbors(v)) {
-				if (vertex_mark[i] == white) {
+				if (vertex_mark[i] == WHITE) {
 					if (!dfs(vertex_mark, g, i)) {
 						return 0;
 					} 
 				}
-				if (vertex_mark[i] == grey) {
+				if (vertex_mark[i] == GRAY) {
 					return 0;
 				}
 			}
-			vertex_mark[v] = black;
+			vertex_mark[v] = BLACK;
 			return 1;
-		}
+		}	
 	}
-
 	std::vector<Vertex> top_sort(const Graph &g) {
-		std::vector<VertexMark> vertex_mark(g.get_vertex_count(), white);
-		std::vector<Vertex> result;
-		for (size_t i = 0; i < g.get_vertex_count(); ++i) {
-			if (vertex_mark[i] == white) {
-				dfs_2(vertex_mark, g, i, result);
+		assert(g.is_directed());
+		std::vector<VertexMark> vertex_mark(g.get_vertex_count(), WHITE);
+		std::vector<Vertex> ts_list;
+		for (Vertex i = 0; i < g.get_vertex_count(); ++i) {
+			if (vertex_mark[i] == WHITE) {
+				dfs_for_ts(vertex_mark, g, i, ts_list);
 			}
 		}
-		return result;
+		return ts_list;
 	}
 
-	void bfs (const Graph &g, Vertex v, std::vector<size_t> &distance, std::vector<int> &parent) {
-		std::vector<VertexMark> vertex_mark(g.get_vertex_count(), white);
+	void bfs(const Graph &g, Vertex v, std::vector<size_t> &distance, std::vector<int> &parent) {
+		std::vector<VertexMark> vertex_mark(g.get_vertex_count(), WHITE);
 		std::queue<Vertex> vertex_queue;
-		vertex_mark[v] = grey;
+		vertex_mark[v] = GRAY;
 		vertex_queue.push(v);
 		while (!vertex_queue.empty()) {
 			Vertex u = vertex_queue.front();
 			vertex_queue.pop();
 			for (Vertex i: g.get_neighbors(u)) {
-				if (vertex_mark[i] == white) {
-					vertex_mark[i] = grey;
+				if (vertex_mark[i] == WHITE) {
+					vertex_mark[i] = GRAY;
 					distance[i] = distance[u] + 1;
 					parent[i] = u;
 					vertex_queue.push(i);
 				}
 			}
-			vertex_mark[u] = black;
+			vertex_mark[u] = BLACK;
 		}
 	}
 	
@@ -176,22 +177,25 @@ namespace GraphProcessing {
 		return result;
 	}	
 
-	std::vector<std::vector<Vertex>> getConnectedComponents (const Graph &g) {
+	std::vector<std::vector<Vertex>> getConnectedComponents(const Graph &g) {
 		std::vector<std::vector<Vertex>> components;
-		std::vector<VertexMark> vertex_mark(g.get_vertex_count(), white);
+		std::vector<VertexMark> vertex_mark(g.get_vertex_count(), WHITE);
 		for (Vertex v = 0; v < g.get_vertex_count(); ++v) {
-			if (vertex_mark[v] == white) {
+			if (vertex_mark[v] == WHITE) {
 				components.push_back(std::vector<Vertex>());
-				dfs_1(vertex_mark, g, v, components);
+				dfs_for_cc(vertex_mark, g, v, components);
 			}
 		}
 		return components;
 	}
 
 	bool check_acyclicity(const Graph &g) {
-		std::vector<VertexMark> vertex_mark(g.get_vertex_count(), white);
+		if (!g.is_directed()) {
+			return false;
+		}
+		std::vector<VertexMark> vertex_mark(g.get_vertex_count(), WHITE);
 		for (Vertex i = 0; i < g.get_vertex_count(); ++i) {
-			if (vertex_mark[i] == white) {
+			if (vertex_mark[i] == WHITE) {
 				if (!dfs(vertex_mark, g, i)) {
 					return 0;
 				}
@@ -199,32 +203,21 @@ namespace GraphProcessing {
 		}
 		return 1;
 	}
-
 }
 
 int main(){
 	int n;
 	std::cin >> n;
-	GraphAdjList g(n, false);
-	bool** arr;
-	arr = new bool*[n];
-	for (int i = 0; i < n; ++i) {
-		arr[i] = new bool[n];
-	}
+	GraphAdjList g(n, true);
 	for (int i = 0; i < n; ++i) {
 		for (int j = 0; j < n; ++j) {
-			std::cin >> arr[i][j];
-		}
-	}
-
-	for (int i = 0; i < n - 1; ++i) {
-		for (int j = i; j < n; ++j) {
-			if (arr[i][j]) {
+			bool flag;
+			std::cin >> flag;
+			if (flag) {
 				g.add_edge(i, j);
 			}
 		}
 	}
-	//т.к граф неор. считываем только верхний треугольник над диагональю
 	Graph::Vertex start, finish;
 	std::cin >> start >> finish;
 	std::vector<Graph::Vertex> res = GraphProcessing::shortest_path(g, start - 1, finish - 1);
